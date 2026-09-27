@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mind Reader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050505;
+    --panel: #121212;
+    --panel2: #1b1b1b;
+    --line: #3c3c3c;
+    --ink: #e7e7e7;
+    --muted: #838383;
+    --glow: #f2f2f2;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: inherit; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    overflow: hidden;
+  }
+
+  .screen {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    text-align: center;
+    padding: 24px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.9s ease;
+  }
+  .screen.active { opacity: 1; pointer-events: auto; }
+
+  .mystic-layer {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0.22;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  @keyframes mysticPulse {
+    0%, 100% { opacity: 0.25; }
+    50% { opacity: 1; }
+  }
+  .sym-a { animation: mysticPulse 5.5s ease-in-out infinite; }
+  .sym-b { animation: mysticPulse 6.5s ease-in-out infinite 1.4s; }
+  .sym-c { animation: mysticPulse 4.8s ease-in-out infinite 2.6s; }
+  .sym-d { animation: mysticPulse 7.2s ease-in-out infinite 0.6s; }
+  .sym-e { animation: mysticPulse 3.6s ease-in-out infinite 3.4s; }
+
+  .screen::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 70% 55% at 50% 42%, rgba(255,255,255,0.05), transparent 60%),
+      radial-gradient(ellipse 120% 90% at 50% 50%, transparent 40%, rgba(0,0,0,0.75) 100%);
+    pointer-events: none;
+  }
+
+  .eye-wrap { position: relative; width: 220px; height: 220px; margin-bottom: 8px; }
+  .eye-wrap.small { width: 130px; height: 130px; margin-bottom: 0; }
+  .eye-wrap svg { width: 100%; height: 100%; }
+  .eye-glow { animation: breathe 4.5s ease-in-out infinite; }
+  @keyframes breathe { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+
+  .brand {
+    font-family: 'Cinzel', serif;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.42em;
+    color: var(--muted);
+    margin: 18px 0 46px;
+  }
+
+  .enter-btn, .next-btn {
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--ink);
+    font-family: 'Cinzel', serif;
+    font-weight: 500;
+    font-size: 14px;
+    letter-spacing: 0.45em;
+    padding: 15px 26px 13px 32px;
+    cursor: pointer;
+    transition: border-color 0.4s ease, color 0.4s ease, box-shadow 0.4s ease;
+  }
+  .enter-btn:hover, .next-btn:hover {
+    border-color: #8a8a8a;
+    box-shadow: 0 0 24px rgba(255,255,255,0.08);
+    animation: flicker 2.4s infinite;
+  }
+  .enter-btn:focus-visible, .next-btn:focus-visible { outline: 1px solid var(--glow); outline-offset: 6px; }
+  .next-btn:disabled { opacity: 0.35; cursor: default; animation: none; box-shadow: none; }
+  @keyframes flicker {
+    0%, 19%, 21%, 23%, 54%, 56%, 100% { color: var(--ink); }
+    20%, 22%, 55% { color: #4a4a4a; }
+  }
+
+  .table {
+    position: relative;
+    width: 100%;
+    max-width: 420px;
+    padding: 48px 20px 40px;
+    background: radial-gradient(ellipse at 50% 100%, var(--panel2) 0%, var(--panel) 75%);
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    box-shadow: 0 40px 70px rgba(0,0,0,0.6), inset 0 0 70px rgba(0,0,0,0.5);
+    margin-bottom: 30px;
+  }
+  .table::before {
+    content: "";
+    position: absolute;
+    inset: 14px;
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 3px;
+    pointer-events: none;
+  }
+
+  .dice-row { display: flex; justify-content: center; gap: 40px; perspective: 900px; }
+  .die-mount { width: 76px; height: 76px; }
+
+  .cube {
+    position: relative;
+    width: 76px;
+    height: 76px;
+    transform-style: preserve-3d;
+    transform: rotateX(-28deg) rotateY(38deg);
+  }
+  .cube.rolling { animation: tumble 1.05s cubic-bezier(.36,.07,.19,.97); }
+
+  .face {
+    position: absolute;
+    width: 76px;
+    height: 76px;
+    border-radius: 8px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    padding: 13px;
+  }
+  .face-top   { background: linear-gradient(155deg, #ededed, #c9c9c9); transform: rotateX(90deg) translateZ(38px); }
+  .face-front { background: linear-gradient(160deg, #3a3a3a, #232323); transform: translateZ(38px); }
+  .face-right { background: linear-gradient(160deg, #2c2c2c, #181818); transform: rotateY(90deg) translateZ(38px); }
+
+  .pip { width: 11px; height: 11px; border-radius: 50%; justify-self: center; align-self: center; opacity: 0; transform: scale(0.4); }
+  .face-top .pip   { background: #1c1c1c; }
+  .face-front .pip,
+  .face-right .pip { background: #eaeaea; }
+  .pip.on { opacity: 1; transform: scale(1); }
+
+  @keyframes tumble {
+    0%   { transform: rotateX(-28deg) rotateY(38deg); }
+    20%  { transform: rotateX(220deg) rotateY(140deg); }
+    45%  { transform: rotateX(460deg) rotateY(310deg); }
+    70%  { transform: rotateX(660deg) rotateY(470deg); }
+    100% { transform: rotateX(692deg) rotateY(398deg); }
+  }
+
+  .press {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    cursor: pointer;
+    background: radial-gradient(circle at 35% 30%, #3a3a3a, #141414 70%);
+    box-shadow: 0 8px 18px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.08);
+    font-family: 'Cinzel', serif;
+    font-weight: 500;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    transition: transform 0.12s ease, box-shadow 0.12s ease, color 0.3s ease;
+  }
+  .press:hover { color: var(--ink); }
+  .press:active { transform: translateY(2px) scale(0.97); }
+  .press:focus-visible { outline: 1px solid var(--glow); outline-offset: 5px; }
+  .press:disabled { opacity: 0.55; cursor: default; }
+
+  .btn-row { display: flex; gap: 20px; align-items: center; justify-content: center; margin-top: 6px; }
+
+  .caption {
+    max-width: 340px;
+    font-family: 'Cinzel', serif;
+    font-weight: 500;
+    font-size: 16px;
+    line-height: 1.75;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+    margin: 0 0 40px;
+  }
+  .caption.small-top { margin-top: -8px; }
+
+  .sensing {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: opacity 0.7s ease;
+  }
+  .sensing.fade-out { opacity: 0; }
+  .sensing-label {
+    font-family: 'Cinzel', serif;
+    font-size: 13px;
+    letter-spacing: 0.4em;
+    color: var(--muted);
+    margin-top: 20px;
+  }
+
+  .reveal-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    opacity: 0;
+    transform: scale(0.92);
+    transition: opacity 1s ease, transform 1s ease;
+  }
+  .reveal-content.show { opacity: 1; transform: scale(1); }
+
+  .flag-halo {
+    position: absolute;
+    width: 340px;
+    height: 340px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,0.14) 0%, transparent 68%);
+    pointer-events: none;
+  }
+
+  .dk-flag {
+    position: relative;
+    width: 190px;
+    height: 135px;
+    background: #c8102e;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.7), 0 0 40px rgba(255,255,255,0.08);
+    animation: wave 3.2s ease-in-out infinite;
+    transform-origin: left center;
+  }
+  .dk-flag .v-bar { position: absolute; top: 0; bottom: 0; left: 33%; width: 15%; background: #fff; }
+  .dk-flag .h-bar { position: absolute; left: 0; right: 0; top: 42%; height: 16%; background: #fff; }
+  @keyframes wave {
+    0%, 100% { transform: perspective(600px) rotateY(0deg); }
+    50%      { transform: perspective(600px) rotateY(-6deg); }
+  }
+
+  .welcome-text {
+    font-family: 'Cinzel', serif;
+    font-weight: 700;
+    font-size: 22px;
+    letter-spacing: 0.18em;
+    color: var(--ink);
+    margin-top: 34px;
+  }
+
+  .again-btn {
+    margin-top: 30px;
+    font-size: 12px;
+    letter-spacing: 0.4em;
+    opacity: 0.7;
+  }
+
+  .fr-flag {
+    position: relative;
+    width: 190px;
+    height: 135px;
+    display: flex;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.7), 0 0 40px rgba(255,255,255,0.08);
+    animation: wave 3.2s ease-in-out infinite;
+    transform-origin: left center;
+  }
+  .fr-flag .fr-blue  { flex: 1; background: #0055a4; }
+  .fr-flag .fr-white { flex: 1; background: #ffffff; }
+  .fr-flag .fr-red   { flex: 1; background: #ef4135; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cube.rolling, .eye-glow, .dk-flag { animation: none; }
+    .sym { animation: none; opacity: 0.7; }
+  }
+  @media (max-width: 420px) {
+    .dice-row { gap: 24px; }
+  }
+
+  #muteBtn {
+    position: fixed;
+    top: calc(16px + env(safe-area-inset-top, 0px));
+    right: 16px;
+    z-index: 10;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: rgba(18,18,18,0.7);
+    color: var(--muted);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.3s ease, border-color 0.3s ease;
+  }
+  #muteBtn:hover { color: var(--ink); border-color: #8a8a8a; }
+  #muteBtn.muted { color: #4a4a4a; }
+</style>
+</head>
+<body>
+
+<button id="muteBtn" aria-label="Toggle sound" title="Toggle sound">&#128266;</button>
+<div class="screen active" id="gate">
+  <svg class="mystic-layer"><defs><pattern id="mysticPattern1" width="420" height="420" patternUnits="userSpaceOnUse"><g fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><g class="sym sym-a" transform="translate(55,45) rotate(10)"><polygon points="0,-20 6,-4 23,-4 9,6 14,23 0,13 -14,23 -9,6 -23,-4 -6,-4"/></g><g class="sym sym-b" transform="translate(205,35) rotate(-8)"><ellipse cx="0" cy="0" rx="15" ry="8"/><circle cx="0" cy="0" r="3.4"/></g><g class="sym sym-c" transform="translate(350,80) rotate(15)"><path d="M0,0 a13,13 0 1,0 2,26 a10,10 0 1,1 -2,-26z"/></g><g class="sym sym-d" transform="translate(100,150) rotate(5)"><polygon points="0,0 13,25 -13,25"/><circle cx="0" cy="19" r="2.6"/></g><g class="sym sym-e" transform="translate(270,140) rotate(-20)"><polygon points="0,-20 6,-4 23,-4 9,6 14,23 0,13 -14,23 -9,6 -23,-4 -6,-4"/></g><g class="sym sym-a" transform="translate(45,255) rotate(12)"><ellipse cx="0" cy="0" rx="15" ry="8"/><circle cx="0" cy="0" r="3.4"/></g><g class="sym sym-b" transform="translate(185,295) rotate(-10)"><path d="M0,0 a13,13 0 1,0 2,26 a10,10 0 1,1 -2,-26z"/></g><g class="sym sym-c" transform="translate(335,265) rotate(8)"><polygon points="0,0 13,25 -13,25"/><circle cx="0" cy="19" r="2.6"/></g><g class="sym sym-d" transform="translate(150,375) rotate(25)"><polygon points="0,-20 6,-4 23,-4 9,6 14,23 0,13 -14,23 -9,6 -23,-4 -6,-4"/></g><g class="sym sym-e" transform="translate(300,365) rotate(-15)"><ellipse cx="0" cy="0" rx="15" ry="8"/><circle cx="0" cy="0" r="3.4"/></g><g class="sym sym-a" transform="translate(60,190) rotate(-5)"><path d="M0,0 a13,13 0 1,0 2,26 a10,10 0 1,1 -2,-26z"/></g><g class="sym sym-b" transform="translate(230,60) rotate(18)"><polygon points="0,0 13,25 -13,25"/><circle cx="0" cy="19" r="2.6"/></g><g fill="#ffffff" stroke="none"><circle class="sym sym-a" cx="130" cy="20" r="1.4"/><circle class="sym sym-b" cx="20" cy="120" r="1.4"/><circle class="sym sym-c" cx="370" cy="180" r="1.4"/><circle class="sym sym-d" cx="250" cy="230" r="1.4"/><circle class="sym sym-e" cx="90" cy="340" r="1.4"/><circle class="sym sym-a" cx="390" cy="330" r="1.4"/><circle class="sym sym-b" cx="10" cy="380" r="1.4"/><circle class="sym sym-c" cx="310" cy="10" r="1.4"/></g></g></pattern></defs><rect width="100%" height="100%" fill="url(#mysticPattern1)"/></svg>
+  <div class="eye-wrap">
+    <svg viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="irisGrad" cx="50%" cy="45%" r="60%">
+          <stop offset="0%" stop-color="#f4f4f4"/>
+          <stop offset="55%" stop-color="#9c9c9c"/>
+          <stop offset="100%" stop-color="#3a3a3a"/>
+        </radialGradient>
+        <linearGradient id="triGrad" x1="0" y1="1" x2="0" y2="0">
+          <stop offset="0%" stop-color="#2a2a2a"/>
+          <stop offset="100%" stop-color="#5c5c5c"/>
+        </linearGradient>
+      </defs>
+      <g class="eye-glow">
+        <g stroke="#5a5a5a" stroke-width="1" opacity="0.5">
+          <line x1="110" y1="6" x2="110" y2="26"/>
+          <line x1="110" y1="194" x2="110" y2="214"/>
+          <line x1="6" y1="110" x2="26" y2="110"/>
+          <line x1="194" y1="110" x2="214" y2="110"/>
+          <line x1="34" y1="34" x2="48" y2="48"/>
+          <line x1="186" y1="34" x2="172" y2="48"/>
+          <line x1="34" y1="186" x2="48" y2="172"/>
+          <line x1="186" y1="186" x2="172" y2="172"/>
+        </g>
+        <polygon points="110,32 186,168 34,168" fill="none" stroke="url(#triGrad)" stroke-width="3" stroke-linejoin="round"/>
+        <ellipse cx="110" cy="128" rx="46" ry="24" fill="#0c0c0c" stroke="#6a6a6a" stroke-width="1.5"/>
+        <circle cx="110" cy="128" r="17" fill="url(#irisGrad)"/>
+        <circle cx="110" cy="128" r="6.5" fill="#0a0a0a"/>
+        <circle cx="104" cy="122" r="2.3" fill="#ffffff" opacity="0.8"/>
+      </g>
+    </svg>
+  </div>
+  <div class="brand">MIND READER</div>
+  <button class="enter-btn" id="enterBtn">ENTER</button>
+</div>
+
+<div class="screen" id="diceScreen">
+  <svg class="mystic-layer"><defs><pattern id="mysticPattern2" width="420" height="420" patternUnits="userSpaceOnUse"><g fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><g class="sym sym-a" transform="translate(55,45) rotate(10)"><polygon points="0,-20 6,-4 23,-4 9,6 14,23 0,13 -14,23 -9,6 -23,-4 -6,-4"/></g><g class="sym sym-b" transform="translate(205,35) rotate(-8)"><ellipse cx="0" cy="0" rx="15" ry="8"/><circle cx="0" cy="0" r="3.4"/></g><g class="sym sym-c" transform="translate(350,80) rotate(15)"><path d="M0,0 a13,13 0 1,0 2,26 a10,10 0 1,1 -2,-26z"/></g><g class="sym sym-d" transform="translate(100,150) rotate(5)"><polygon points="0,0 13,25 -13,25"/><circle cx="0" cy="19" r="2.6"/></g><g class="sym sym-e" transform="translate(270,140) rotate(-20)"><polygon points="0,-20 6,-4 23,-4 9,6 14,23 0,13 -14,23 -9,6 -23,-4 -6,-4"/></g><g class="sym sym-a" transform="translate(45,255) rotate(12)"><ellipse cx="0" cy="0" rx="15" ry="8"/><circle cx="0" cy="0" r="3.4"/></g><g class="sym sym-b" transform="translate(185,295) rotate(-10)"><path d="M0,0 a13,13 0 1,0 2,26 a10,10 0 1,1 -2,-26z"/></g><g class="sym sym-c" transform="translate(335,265) rotate(8)"><polygon points="0,0 13,25 -13,25"/><circle cx="0" cy="19" r="2.6"/></g><g class="sym sym-d" transform="translate(150,375) rotate(25)"><polygon points="0,-20 6,-4 23,-4 9,6 14,23 0,13 -14,23 -9,6 -23,-4 -6,-4"/></g><g class="sym sym-e" transform="translate(300,365) rotate(-15)"><ellipse cx="0" cy="0" rx="15" ry="8"/><circle cx="0" cy="0" r="3.4"/></g><g class="sym sym-a" transform="translate(60,190) rotate(-5)"><path d="M0,0 a13,13 0 1,0 2,26 a10,10 0 1,1 -2,-26z"/></g><g class="sym sym-b" transform="translate(230,60) rotate(18)"><polygon points="0,0 13,25 -13,25"/><circle cx="0" cy="19" r="2.6"/></g><g fill="#ffffff" stroke="none"><circle class="sym sym-a" cx="130" cy="20" r="1.4"/><circle class="sym sym-b" cx="20" cy="120" r="1.4"/><circle class="sym sym-c" cx="370" cy="180" r="1.4"/><circle class="sym sym-d" cx="250" cy="230" r="1.4"/><circle class="sym sym-e" cx="90" cy="340" r="1.4"/><circle class="sym sym-a" cx="390" cy="330" r="1.4"/><circle class="sym sym-b" cx="10" cy="380" r="1.4"/><circle class="sym sym-c" cx="310" cy="10" r="1.4"/></g></g></pattern></defs><rect width="100%" height="100%" fill="url(#mysticPattern2)"/></svg>
+  <div class="table">
+    <div class="dice-row" id="diceRow">
+      <div class="die-mount"><div class="cube">
+        <div class="face face-top"></div><div class="face face-front"></div><div class="face face-right"></div>
+      </div></div>
+      <div class="die-mount"><div class="cube">
+        <div class="face face-top"></div><div class="face face-front"></div><div class="face face-right"></div>
+      </div></div>
+      <div class="die-mount"><div class="cube">
+        <div class="face face-top"></div><div class="face face-front"></div><div class="face face-right"></div>
+      </div></div>
+    </div>
+  </div>
+  <p class="caption">Roll the dice, then add the top numbers together.</p>
+  <div class="btn-row">
+    <button class="press" id="pressBtn">ROLL</button>
+    <button class="next-btn" id="next1">NEXT</button>
+  </div>
+</div>
+
+<div class="screen" id="stepDouble">
+  <svg class="mystic-layer"><defs><pattern id="mysticPattern3" width="420" height="420" patternUnits="userSpaceOnUse"><g fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><g class="sym sym-a" transform="translate(55,45) rotate(10)"><polygon points="0,-20 6,-4 23,-4 9,6 14,23 0,13 -14,23 -9,6 -23,-4 -6,-4"/></g><g class="sym sym-b" transform="translate(205,35) rotate(-8)"><ellipse cx="0" cy="0" rx="15" ry="8"/><circle cx="0" cy="0" r="3.4"/></g><g class="sym sym-c" transform="translate(350,80) rotate(15)"><path d="M0,0 a13,13 0 1,0 2,26 a10,10 0 1,1 -2,-26z"/></g><g class="sym sym-d" transform="translate(100,150) rotate(5)"><polygon points="0,0 13,25 -13,25"/><circle cx="0" cy="19" r="2.6"/></g><g class="sym sym-e" transform="translate(270,140) rotate(-20)"><polygon points="0,-20 6,-4 23,-4 9,6 14,23 0,13 -14,23 -9,6 -23,-4 -6,-4"/></g><g class="sym sym-a" transform="translate(45,255) rotate(12)"><ellipse cx="0" cy="0" rx="15" ry="8"/><circle cx="0" cy="0" r="3.4"/></g><g class="sym sym-b" transform="translate(185,295) rotate(-10)"><path d="M0,0 a13,13 0 1,0 2,26 a10,10 0 1,1 -2,-26z"/></g><g class="sym sym-c" transform="translate(335,265) rotate(8)"><polygon points="0,0 13,25 -13,25"/><circle cx="0" cy="19" r="2.6"/></g><g class="sym sym-d" transform="translate(150,375) rotate(25)"><polygon points="0,-20 6,-4 23,-4 9,6 14,23 0,13 -14,23 -9,6 -23,-4 -6,-4"/></g><g class="sym sym-e" transform="translate(300,365) rotate(-15)"><ellipse cx="0" cy="0" rx="15" ry="8"/><circle cx="0" cy="0" r="3.4"/></g><g class="sym sym-a" transform="translate(60,190) rotate(-5)"><path d="M0,0 a13,13 0 1,0 2,26 a10,10 0 1,1 -2,-26z"/></g><g class="sym sym-b" transform="translate(230,60) rotate(18)"><polygon points="0,0 13,25 -13,25"/><circle cx="0" cy="19" r="2.6"/></g><g fill="#ffffff" stroke="none"><circle class="sym sym-a" cx="130" cy="20" r="1.4"/><circle class="sym sym-b" cx="20" cy="120" r="1.4"/><circle class="sym sym-c" cx="370" cy="180" r="1.4"/><circle class="sym sym-d" cx="250" cy="230" r="1.4"/><circle class="sym sym-e" cx="90" cy="340" r="1.4"/><circle class="sym sym-a" cx="390" cy="330" r="1.4"/><circle class="sym sym-b" cx="10" cy="380" r="1.4"/><circle class="sym sym-c" cx="310" cy="10" r="1.4"/></g></g></pattern></defs><rect width="100%" height="100%" fill="url(#mysticPattern3)"/></svg>
+  <p class="caption">If you have a double digit, add them together to create a single digit.</p>
+  <button class="next-btn" id="nextDouble">NEXT</button>
+</div>
+
+<div class="screen" id="stepSubtract">
+  <svg class="mystic-layer"><defs><pattern id="mysticPattern4" width="420" height="420" patternUnits="userSpaceOnUse"><g fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><g class="sym sym-a" transform="translate(55,45) rotate(10)"><polygon points="0,-20 6,-4 23,-4 9,6 14,23 0,13 -14,23 -9,6 -23,-4 -6,-4"/></g><g class="sym sym-b" transform="translate(205,35) rotate(-8)"><ellipse cx="0" cy="0" rx="15" ry="8"/><circle cx="0" cy="0" r="3.4"/></g><g class="sym sym-c" transform="translate(350,80) rotate(15)"><path d="M0,0 a13,13 0 1,0 2,26 a10,10 0 1,1 -2,-26z"/></g><g class="sym sym-d" transform="translate(100,150) rotate(5)"><polygon points="0,0 13,25 -13,25"/><circle cx="0" cy="19" r="2.6"/></g><g class="sym sym-e" transform="translate(270,140) rotate(-20)"><polygon points="0,-20 6,-4 23,-4 9,6 14,23 0,13 -14,23 -9,6 -23,-4 -6,-4"/></g><g class="sym sym-a" transform="translate(45,255) rotate(12)"><ellipse cx="0" cy="0" rx="15" ry="8"/><circle cx="0" cy="0" r="3.4"/></g><g class="sym sym-b" transform="translate(185,295) rotate(-10)"><path d="M0,0 a13,13 0 1,0 2,26 a10,10 0 1,1 -2,-26z"/></g><g class="sym sym-c" transform="translate(335,265) rotate(8)"><polygon points="0,0 13,25 -13,25"/><circle cx="0" cy="19" r="2.6"/></g><g class="sym sym-d" transform="translate(150,375) rotate(25)"><polygon points="0,-20 6,-4 23,-4 9,6 14,23 0,13 -14,23 -9,6 -23,-4 -6,-4"/></g><g class="sym sym-e" transform="translate(300,365) rotate(-15)"><ellipse cx="0" cy="0" rx="15" ry="8"/><circle cx="0" cy="0" r="3.4"/></g><g class="sym sym-a" transform="translate(60,190) rotate(-5)"><path d="M0,0 a13,13 0 1,0 2,26 a10,10 0 1,1 -2,-26z"/></g><g class="sym sym-b" transform="translate(230,60) rotate(18)"><polygon points="0,0 13,25 -13,25"/><circle cx="0" cy="19" r="2.6"/></g><g fill="#ffffff" stroke="none"><circle class="sym sym-a" cx="130" cy="20" r="1.4"/><circle class="sym sym-b" cx="20" cy="120" r="1.4"/><circle class="sym sym-c" cx="370" cy="180" r="1.4"/><circle class="sym sym-d" cx="250" cy="230" r="1.4"/><circle class="sym sym-e" cx="90" cy="340" r="1.4"/><circle class="sym sym-a" cx="390" cy="330" r="1.4"/><circle class="sym sym-b" cx="10" cy="380" r="1.4"/><circle class="sym sym-c" cx="310" cy="10" r="1.4"/></g></g></pattern></defs><rect width="100%" height="100%" fill="url(#mysticPattern4)"/></svg>
+  <p class="caption">Subtract 5.</p>
+  <button class="next-btn" id="nextSubtract">NEXT</button>
+</div>
+
+<div class="screen" id="stepLetter">
+  <svg class="mystic-layer"><defs><pattern id="mysticPattern5" width="420" height="420" patternUnits="userSpaceOnUse"><g fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><g class="sym sym-a" transform="translate(55,45) rotate(10)"><polygon points="0,-20 6,-4 23,-4 9,6 14,23 0,13 -14,23 -9,6 -23,-4 -6,-4"/></g><g class="sym sym-b" transform="translate(205,35) rotate(-8)"><ellipse cx="0" cy="0" rx="15" ry="8"/><circle cx="0" cy="0" r="3.4"/></g><g class="sym sym-c" transform="translate(350,80) rotate(15)"><path d="M0,0 a13,13 0 1,0 2,26 a10,10 0 1,1 -2,-26z"/></g><g class="sym sym-d" transform="translate(100,150) rotate(5)"><polygon points="0,0 13,25 -13,25"/><circle cx="0" cy="19" r="2.6"/></g><g class="sym sym-e" transform="translate(270,140) rotate(-20)"><polygon points="0,-20 6,-4 23,-4 9,6 14,23 0,13 -14,23 -9,6 -23,-4 -6,-4"/></g><g class="sym sym-a" transform="translate(45,255) rotate(12)"><ellipse cx="0" cy="0" rx="15" ry="8"/><circle cx="0" cy="0" r="3.4"/></g><g class="sym sym-b" transform="translate(185,295) rotate(-10)"><path d="M0,0 a13,13 0 1,0 2,26 a10,10 0 1,1 -2,-26z"/></g><g class="sym sym-c" transform="translate(335,265) rotate(8)"><polygon points="0,0 13,25 -13,25"/><circle cx="0" cy="19" r="2.6"/></g><g class="sym sym-d" transform="translate(150,375) rotate(25)"><polygon points="0,-20 6,-4 23,-4 9,6 14,23 0,13 -14,23 -9,6 -23,-4 -6,-4"/></g><g class="sym sym-e" transform="translate(300,365) rotate(-15)"><ellipse cx="0" cy="0" rx="15" ry="8"/><circle cx="0" cy="0" r="3.4"/></g><g class="sym sym-a" transform="translate(60,190) rotate(-5)"><path d="M0,0 a13,13 0 1,0 2,26 a10,10 0 1,1 -2,-26z"/></g><g class="sym sym-b" transform="translate(230,60) rotate(18)"><polygon points="0,0 13,25 -13,25"/><circle cx="0" cy="19" r="2.6"/></g><g fill="#ffffff" stroke="none"><circle class="sym sym-a" cx="130" cy="20" r="1.4"/><circle class="sym sym-b" cx="20" cy="120" r="1.4"/><circle class="sym sym-c" cx="370" cy="180" r="1.4"/><circle class="sym sym-d" cx="250" cy="230" r="1.4"/><circle class="sym sym-e" cx="90" cy="340" r="1.4"/><circle class="sym sym-a" cx="390" cy="330" r="1.4"/><circle class="sym sym-b" cx="10" cy="380" r="1.4"/><circle class="sym sym-c" cx="310" cy="10" r="1.4"/></g></g></pattern></defs><rect width="100%" height="100%" fill="url(#mysticPattern5)"/></svg>
+  <p class="caption">Think of a country that corresponds with the letter of the alphabet at that position.<br><br>I shall now read your mind.</p>
+  <button class="next-btn" id="nextLetter">NEXT</button>
+</div>
+
+<div class="screen" id="revealScreen">
+  <div class="sensing" id="sensing">
+    <div class="eye-wrap small">
+      <svg viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg">
+        <g class="eye-glow">
+          <g stroke="#5a5a5a" stroke-width="1" opacity="0.5">
+            <line x1="110" y1="6" x2="110" y2="26"/><line x1="110" y1="194" x2="110" y2="214"/>
+            <line x1="6" y1="110" x2="26" y2="110"/><line x1="194" y1="110" x2="214" y2="110"/>
+            <line x1="34" y1="34" x2="48" y2="48"/><line x1="186" y1="34" x2="172" y2="48"/>
+            <line x1="34" y1="186" x2="48" y2="172"/><line x1="186" y1="186" x2="172" y2="172"/>
+          </g>
+          <polygon points="110,32 186,168 34,168" fill="none" stroke="url(#triGrad2)" stroke-width="3" stroke-linejoin="round"/>
+          <ellipse cx="110" cy="128" rx="46" ry="24" fill="#0c0c0c" stroke="#6a6a6a" stroke-width="1.5"/>
+          <circle cx="110" cy="128" r="17" fill="url(#irisGrad2)"/>
+          <circle cx="110" cy="128" r="6.5" fill="#0a0a0a"/>
+        </g>
+        <defs>
+          <radialGradient id="irisGrad2" cx="50%" cy="45%" r="60%">
+            <stop offset="0%" stop-color="#f4f4f4"/><stop offset="55%" stop-color="#9c9c9c"/><stop offset="100%" stop-color="#3a3a3a"/>
+          </radialGradient>
+          <linearGradient id="triGrad2" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" stop-color="#2a2a2a"/><stop offset="100%" stop-color="#5c5c5c"/>
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+    <div class="sensing-label">SENSING&hellip;</div>
+  </div>
+  <div class="reveal-content" id="revealContent">
+    <div class="flag-halo"></div>
+    <div class="dk-flag"><div class="v-bar"></div><div class="h-bar"></div></div>
+    <div class="welcome-text">WELCOME TO DENMARK</div>
+    <button class="next-btn again-btn" id="againBtn">AGAIN</button>
+  </div>
+</div>
+
+<div class="screen" id="stepSubtract3">
+  <svg class="mystic-layer"><defs><pattern id="mysticPattern6" width="420" height="420" patternUnits="userSpaceOnUse"><g fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><g class="sym sym-a" transform="translate(55,45) rotate(10)"><polygon points="0,-20 6,-4 23,-4 9,6 14,23 0,13 -14,23 -9,6 -23,-4 -6,-4"/></g><g class="sym sym-b" transform="translate(205,35) rotate(-8)"><ellipse cx="0" cy="0" rx="15" ry="8"/><circle cx="0" cy="0" r="3.4"/></g><g class="sym sym-c" transform="translate(350,80) rotate(15)"><path d="M0,0 a13,13 0 1,0 2,26 a10,10 0 1,1 -2,-26z"/></g><g class="sym sym-d" transform="translate(100,150) rotate(5)"><polygon points="0,0 13,25 -13,25"/><circle cx="0" cy="19" r="2.6"/></g><g class="sym sym-e" transform="translate(270,140) rotate(-20)"><polygon points="0,-20 6,-4 23,-4 9,6 14,23 0,13 -14,23 -9,6 -23,-4 -6,-4"/></g><g class="sym sym-a" transform="translate(45,255) rotate(12)"><ellipse cx="0" cy="0" rx="15" ry="8"/><circle cx="0" cy="0" r="3.4"/></g><g class="sym sym-b" transform="translate(185,295) rotate(-10)"><path d="M0,0 a13,13 0 1,0 2,26 a10,10 0 1,1 -2,-26z"/></g><g class="sym sym-c" transform="translate(335,265) rotate(8)"><polygon points="0,0 13,25 -13,25"/><circle cx="0" cy="19" r="2.6"/></g><g class="sym sym-d" transform="translate(150,375) rotate(25)"><polygon points="0,-20 6,-4 23,-4 9,6 14,23 0,13 -14,23 -9,6 -23,-4 -6,-4"/></g><g class="sym sym-e" transform="translate(300,365) rotate(-15)"><ellipse cx="0" cy="0" rx="15" ry="8"/><circle cx="0" cy="0" r="3.4"/></g><g class="sym sym-a" transform="translate(60,190) rotate(-5)"><path d="M0,0 a13,13 0 1,0 2,26 a10,10 0 1,1 -2,-26z"/></g><g class="sym sym-b" transform="translate(230,60) rotate(18)"><polygon points="0,0 13,25 -13,25"/><circle cx="0" cy="19" r="2.6"/></g><g fill="#ffffff" stroke="none"><circle class="sym sym-a" cx="130" cy="20" r="1.4"/><circle class="sym sym-b" cx="20" cy="120" r="1.4"/><circle class="sym sym-c" cx="370" cy="180" r="1.4"/><circle class="sym sym-d" cx="250" cy="230" r="1.4"/><circle class="sym sym-e" cx="90" cy="340" r="1.4"/><circle class="sym sym-a" cx="390" cy="330" r="1.4"/><circle class="sym sym-b" cx="10" cy="380" r="1.4"/><circle class="sym sym-c" cx="310" cy="10" r="1.4"/></g></g></pattern></defs><rect width="100%" height="100%" fill="url(#mysticPattern6)"/></svg>
+  <p class="caption">Subtract 2.</p>
+  <button class="next-btn" id="nextSubtract3">NEXT</button>
+</div>
+
+<div class="screen" id="stepArchitecture">
+  <svg class="mystic-layer"><defs><pattern id="mysticPattern7" width="420" height="420" patternUnits="userSpaceOnUse"><g fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><g class="sym sym-a" transform="translate(55,45) rotate(10)"><polygon points="0,-20 6,-4 23,-4 9,6 14,23 0,13 -14,23 -9,6 -23,-4 -6,-4"/></g><g class="sym sym-b" transform="translate(205,35) rotate(-8)"><ellipse cx="0" cy="0" rx="15" ry="8"/><circle cx="0" cy="0" r="3.4"/></g><g class="sym sym-c" transform="translate(350,80) rotate(15)"><path d="M0,0 a13,13 0 1,0 2,26 a10,10 0 1,1 -2,-26z"/></g><g class="sym sym-d" transform="translate(100,150) rotate(5)"><polygon points="0,0 13,25 -13,25"/><circle cx="0" cy="19" r="2.6"/></g><g class="sym sym-e" transform="translate(270,140) rotate(-20)"><polygon points="0,-20 6,-4 23,-4 9,6 14,23 0,13 -14,23 -9,6 -23,-4 -6,-4"/></g><g class="sym sym-a" transform="translate(45,255) rotate(12)"><ellipse cx="0" cy="0" rx="15" ry="8"/><circle cx="0" cy="0" r="3.4"/></g><g class="sym sym-b" transform="translate(185,295) rotate(-10)"><path d="M0,0 a13,13 0 1,0 2,26 a10,10 0 1,1 -2,-26z"/></g><g class="sym sym-c" transform="translate(335,265) rotate(8)"><polygon points="0,0 13,25 -13,25"/><circle cx="0" cy="19" r="2.6"/></g><g class="sym sym-d" transform="translate(150,375) rotate(25)"><polygon points="0,-20 6,-4 23,-4 9,6 14,23 0,13 -14,23 -9,6 -23,-4 -6,-4"/></g><g class="sym sym-e" transform="translate(300,365) rotate(-15)"><ellipse cx="0" cy="0" rx="15" ry="8"/><circle cx="0" cy="0" r="3.4"/></g><g class="sym sym-a" transform="translate(60,190) rotate(-5)"><path d="M0,0 a13,13 0 1,0 2,26 a10,10 0 1,1 -2,-26z"/></g><g class="sym sym-b" transform="translate(230,60) rotate(18)"><polygon points="0,0 13,25 -13,25"/><circle cx="0" cy="19" r="2.6"/></g><g fill="#ffffff" stroke="none"><circle class="sym sym-a" cx="130" cy="20" r="1.4"/><circle class="sym sym-b" cx="20" cy="120" r="1.4"/><circle class="sym sym-c" cx="370" cy="180" r="1.4"/><circle class="sym sym-d" cx="250" cy="230" r="1.4"/><circle class="sym sym-e" cx="90" cy="340" r="1.4"/><circle class="sym sym-a" cx="390" cy="330" r="1.4"/><circle class="sym sym-b" cx="10" cy="380" r="1.4"/><circle class="sym sym-c" cx="310" cy="10" r="1.4"/></g></g></pattern></defs><rect width="100%" height="100%" fill="url(#mysticPattern7)"/></svg>
+  <p class="caption">Think of a country known for its architecture &mdash; the letter of the alphabet at that position will guide you there.<br><br>I shall now read your mind.</p>
+  <button class="next-btn" id="nextArchitecture">NEXT</button>
+</div>
+
+<div class="screen" id="revealFrance">
+  <div class="sensing" id="sensingFr">
+    <div class="eye-wrap small">
+      <svg viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg">
+        <g class="eye-glow">
+          <g stroke="#5a5a5a" stroke-width="1" opacity="0.5">
+            <line x1="110" y1="6" x2="110" y2="26"/><line x1="110" y1="194" x2="110" y2="214"/>
+            <line x1="6" y1="110" x2="26" y2="110"/><line x1="194" y1="110" x2="214" y2="110"/>
+            <line x1="34" y1="34" x2="48" y2="48"/><line x1="186" y1="34" x2="172" y2="48"/>
+            <line x1="34" y1="186" x2="48" y2="172"/><line x1="186" y1="186" x2="172" y2="172"/>
+          </g>
+          <polygon points="110,32 186,168 34,168" fill="none" stroke="url(#triGrad3)" stroke-width="3" stroke-linejoin="round"/>
+          <ellipse cx="110" cy="128" rx="46" ry="24" fill="#0c0c0c" stroke="#6a6a6a" stroke-width="1.5"/>
+          <circle cx="110" cy="128" r="17" fill="url(#irisGrad3)"/>
+          <circle cx="110" cy="128" r="6.5" fill="#0a0a0a"/>
+        </g>
+        <defs>
+          <radialGradient id="irisGrad3" cx="50%" cy="45%" r="60%">
+            <stop offset="0%" stop-color="#f4f4f4"/><stop offset="55%" stop-color="#9c9c9c"/><stop offset="100%" stop-color="#3a3a3a"/>
+          </radialGradient>
+          <linearGradient id="triGrad3" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" stop-color="#2a2a2a"/><stop offset="100%" stop-color="#5c5c5c"/>
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+    <div class="sensing-label">SENSING&hellip;</div>
+  </div>
+  <div class="reveal-content" id="revealContentFr">
+    <div class="flag-halo"></div>
+    <div class="fr-flag"><div class="fr-blue"></div><div class="fr-white"></div><div class="fr-red"></div></div>
+    <div class="welcome-text">WELCOME TO FRANCE</div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const PIP_PATTERNS = { 1:[5], 2:[1,9], 3:[1,5,9], 4:[1,3,7,9], 5:[1,3,5,7,9], 6:[1,3,4,6,7,9] };
+  const SIDES = { 1:[2,3], 2:[1,3], 3:[1,2], 4:[1,2], 5:[1,3], 6:[2,3] };
+
+  const Sound = (function() {
+    let actx = null;
+    let muted = false;
+    const muteBtn = document.getElementById('muteBtn');
+
+    function ensure() {
+      if (!actx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        actx = new AC();
+      }
+      if (actx.state === 'suspended') actx.resume();
+      return actx;
+    }
+
+    function tone(freq, start, dur, opts) {
+      const ctx = ensure();
+      if (!ctx || muted) return;
+      opts = opts || {};
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = opts.type || 'sine';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
+      if (opts.glideTo) {
+        osc.frequency.linearRampToValueAtTime(opts.glideTo, ctx.currentTime + start + dur);
+      }
+      const peak = opts.gain != null ? opts.gain : 0.12;
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime + start);
+      gain.gain.linearRampToValueAtTime(peak, ctx.currentTime + start + (opts.attack || 0.02));
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + start + dur);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + start + dur + 0.05);
+    }
+
+    function click() { tone(720, 0, 0.09, { type: 'triangle', gain: 0.07, attack: 0.005 }); }
+    function chime() {
+      tone(523.25, 0,    0.5, { type: 'sine', gain: 0.09 });
+      tone(783.99, 0.06, 0.55, { type: 'sine', gain: 0.07 });
+    }
+    function rattle(duration) {
+      const ctx = ensure();
+      if (!ctx || muted) return;
+      const bufSize = Math.floor(ctx.sampleRate * duration);
+      const buffer = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1);
+      const noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+      const bandpass = ctx.createBiquadFilter();
+      bandpass.type = 'bandpass';
+      bandpass.frequency.value = 1200;
+      bandpass.Q.value = 0.7;
+      const gain = ctx.createGain();
+      const now = ctx.currentTime;
+      gain.gain.setValueAtTime(0.0001, now);
+      const steps = Math.max(4, Math.floor(duration / 0.09));
+      for (let s = 0; s < steps; s++) {
+        const t = now + (s / steps) * duration;
+        const amt = 0.16 * (1 - s / steps) + 0.03;
+        gain.gain.linearRampToValueAtTime(amt, t + 0.02);
+        gain.gain.linearRampToValueAtTime(0.02, t + 0.07);
+      }
+      gain.gain.linearRampToValueAtTime(0.0001, now + duration);
+      noise.connect(bandpass).connect(gain).connect(ctx.destination);
+      noise.start(now);
+      noise.stop(now + duration + 0.05);
+    }
+    function hum(duration) {
+      const ctx = ensure();
+      if (!ctx || muted) return;
+      const osc = ctx.createOscillator();
+      const lfo = ctx.createOscillator();
+      const lfoGain = ctx.createGain();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 96;
+      lfo.frequency.value = 5.5;
+      lfoGain.gain.value = 6;
+      lfo.connect(lfoGain).connect(osc.frequency);
+      const now = ctx.currentTime;
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.linearRampToValueAtTime(0.05, now + duration * 0.35);
+      gain.gain.linearRampToValueAtTime(0.05, now + duration * 0.75);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now);
+      lfo.start(now);
+      osc.stop(now + duration + 0.1);
+      lfo.stop(now + duration + 0.1);
+    }
+    function reveal() {
+      tone(261.63, 0,    1.4, { type: 'sine', gain: 0.08 });
+      tone(329.63, 0.08, 1.4, { type: 'sine', gain: 0.07 });
+      tone(392.00, 0.16, 1.6, { type: 'sine', gain: 0.07 });
+    }
+
+    let ambientStarted = false;
+    let ambientGain = null;
+
+    function makeDrone(ctx, dest, freqs) {
+      const bus = ctx.createGain();
+      bus.gain.value = 0;
+      bus.connect(dest);
+      freqs.forEach((f, i) => {
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = f;
+        const g = ctx.createGain();
+        g.gain.value = 0.045;
+        const lfo = ctx.createOscillator();
+        lfo.frequency.value = 0.04 + i * 0.015;
+        const lfoGain = ctx.createGain();
+        lfoGain.gain.value = 0.017;
+        lfo.connect(lfoGain).connect(g.gain);
+        osc.connect(g).connect(bus);
+        osc.start();
+        lfo.start();
+      });
+      return bus;
+    }
+
+    function startAmbient() {
+      if (ambientStarted) return;
+      const ctx = ensure();
+      if (!ctx) return;
+      ambientStarted = true;
+
+      ambientGain = ctx.createGain();
+      ambientGain.gain.value = muted ? 0 : 1;
+      ambientGain.connect(ctx.destination);
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 850;
+      filter.connect(ambientGain);
+
+      const filterLfo = ctx.createOscillator();
+      filterLfo.frequency.value = 0.035;
+      const filterLfoGain = ctx.createGain();
+      filterLfoGain.gain.value = 260;
+      filterLfo.connect(filterLfoGain).connect(filter.frequency);
+      filterLfo.start();
+
+      const droneA = makeDrone(ctx, filter, [73.42, 110.00, 146.83]);
+      const droneB = makeDrone(ctx, filter, [82.41, 110.00, 164.81]);
+      droneA.gain.setValueAtTime(1, ctx.currentTime);
+      droneB.gain.setValueAtTime(0, ctx.currentTime);
+      let active = droneA, resting = droneB;
+      function crossfade() {
+        const t = ctx.currentTime;
+        active.gain.linearRampToValueAtTime(0, t + 7);
+        resting.gain.linearRampToValueAtTime(1, t + 7);
+        const tmp = active; active = resting; resting = tmp;
+        setTimeout(crossfade, 32000 + Math.random() * 10000);
+      }
+      setTimeout(crossfade, 30000 + Math.random() * 8000);
+
+      const noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+      const nd = noiseBuf.getChannelData(0);
+      let last = 0;
+      for (let i = 0; i < nd.length; i++) {
+        const white = Math.random() * 2 - 1;
+        last = (last + 0.02 * white) / 1.02;
+        nd[i] = last * 3.2;
+      }
+      const noise = ctx.createBufferSource();
+      noise.buffer = noiseBuf;
+      noise.loop = true;
+      const noiseFilter = ctx.createBiquadFilter();
+      noiseFilter.type = 'bandpass';
+      noiseFilter.frequency.value = 500;
+      noiseFilter.Q.value = 0.6;
+      const noiseGain = ctx.createGain();
+      noiseGain.gain.value = 0.012;
+      noise.connect(noiseFilter).connect(noiseGain).connect(ambientGain);
+      noise.start();
+
+      const twinkleFreqs = [523.25, 659.25, 698.46, 783.99, 880.00, 987.77, 1046.50];
+      const swellFreqs = [130.81, 164.81, 196.00];
+      function scheduleTwinkle() {
+        const delay = 4500 + Math.random() * 8500;
+        setTimeout(() => {
+          if (!muted) {
+            const t = ctx.currentTime;
+            const doSwell = Math.random() < 0.22;
+            const bell = ctx.createOscillator();
+            bell.type = doSwell ? 'triangle' : (Math.random() < 0.5 ? 'sine' : 'triangle');
+            const pool = doSwell ? swellFreqs : twinkleFreqs;
+            bell.frequency.value = pool[Math.floor(Math.random() * pool.length)];
+            const g2 = ctx.createGain();
+            const peak = doSwell ? 0.045 : 0.02 + Math.random() * 0.02;
+            const dur = doSwell ? 3.4 + Math.random() * 1.5 : 1.6 + Math.random() * 1.4;
+            const attack = doSwell ? 0.9 : 0.06 + Math.random() * 0.05;
+            g2.gain.setValueAtTime(0.0001, t);
+            g2.gain.linearRampToValueAtTime(peak, t + attack);
+            g2.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+            bell.connect(g2).connect(ambientGain);
+            bell.start(t);
+            bell.stop(t + dur + 0.1);
+          }
+          scheduleTwinkle();
+        }, delay);
+      }
+      scheduleTwinkle();
+    }
+
+    if (muteBtn) {
+      muteBtn.addEventListener('click', () => {
+        muted = !muted;
+        muteBtn.classList.toggle('muted', muted);
+        muteBtn.innerHTML = muted ? '&#128263;' : '&#128266;';
+        const ctx = ensure();
+        startAmbient();
+        if (ctx && ambientGain) {
+          ambientGain.gain.linearRampToValueAtTime(muted ? 0 : 1, ctx.currentTime + 0.4);
+        }
+      });
+    }
+
+    return { click, chime, rattle, hum, reveal, ensure, startAmbient };
+  })();
+
+  document.addEventListener('pointerdown', function firstTouch() {
+    Sound.startAmbient();
+    document.removeEventListener('pointerdown', firstTouch);
+  }, { once: true });
+
+  function goTo(hideEl, showEl, delay) {
+    hideEl.classList.remove('active');
+    setTimeout(() => showEl.classList.add('active'), delay || 500);
+  }
+
+  const gate = document.getElementById('gate');
+  const diceScreen = document.getElementById('diceScreen');
+  const stepDouble = document.getElementById('stepDouble');
+  const stepSubtract = document.getElementById('stepSubtract');
+  const stepLetter = document.getElementById('stepLetter');
+  const revealScreen = document.getElementById('revealScreen');
+  const stepSubtract3 = document.getElementById('stepSubtract3');
+  const stepArchitecture = document.getElementById('stepArchitecture');
+  const revealFrance = document.getElementById('revealFrance');
+
+  let round = 1;
+
+  document.getElementById('enterBtn').addEventListener('click', () => { Sound.chime(); Sound.startAmbient(); goTo(gate, diceScreen); });
+  document.getElementById('next1').addEventListener('click', () => { Sound.chime(); goTo(diceScreen, stepDouble); });
+  document.getElementById('nextDouble').addEventListener('click', () => {
+    Sound.chime();
+    goTo(stepDouble, round === 1 ? stepSubtract : stepSubtract3);
+  });
+  document.getElementById('nextSubtract').addEventListener('click', () => { Sound.chime(); goTo(stepSubtract, stepLetter); });
+  document.getElementById('nextLetter').addEventListener('click', () => {
+    Sound.chime();
+    goTo(stepLetter, revealScreen);
+    setTimeout(runReveal, 900);
+  });
+  document.getElementById('againBtn').addEventListener('click', () => {
+    Sound.chime();
+    round = 2;
+    goTo(revealScreen, gate);
+  });
+  document.getElementById('nextSubtract3').addEventListener('click', () => { Sound.chime(); goTo(stepSubtract3, stepArchitecture); });
+  document.getElementById('nextArchitecture').addEventListener('click', () => {
+    Sound.chime();
+    goTo(stepArchitecture, revealFrance);
+    setTimeout(runRevealFrance, 900);
+  });
+
+  function runReveal() {
+    const sensing = document.getElementById('sensing');
+    const content = document.getElementById('revealContent');
+    Sound.hum(2.6);
+    setTimeout(() => {
+      sensing.classList.add('fade-out');
+      setTimeout(() => {
+        sensing.style.display = 'none';
+        content.classList.add('show');
+        Sound.reveal();
+      }, 700);
+    }, 1900);
+  }
+
+  function runRevealFrance() {
+    const sensing = document.getElementById('sensingFr');
+    const content = document.getElementById('revealContentFr');
+    Sound.hum(2.6);
+    setTimeout(() => {
+      sensing.classList.add('fade-out');
+      setTimeout(() => {
+        sensing.style.display = 'none';
+        content.classList.add('show');
+        Sound.reveal();
+      }, 700);
+    }, 1900);
+  }
+
+  const cubes = Array.from(document.querySelectorAll('.cube'));
+  const pressBtn = document.getElementById('pressBtn');
+
+  function buildPips(face) {
+    for (let i = 1; i <= 9; i++) {
+      const pip = document.createElement('div');
+      pip.className = 'pip';
+      pip.dataset.pos = i;
+      face.appendChild(pip);
+    }
+  }
+  cubes.forEach(cube => {
+    buildPips(cube.querySelector('.face-top'));
+    buildPips(cube.querySelector('.face-front'));
+    buildPips(cube.querySelector('.face-right'));
+  });
+
+  function paintFace(face, value) {
+    const active = new Set(PIP_PATTERNS[value]);
+    face.querySelectorAll('.pip').forEach(pip => {
+      pip.classList.toggle('on', active.has(Number(pip.dataset.pos)));
+    });
+  }
+
+  function setDie(cube, top) {
+    const sides = SIDES[top];
+    paintFace(cube.querySelector('.face-top'), top);
+    paintFace(cube.querySelector('.face-front'), sides[0]);
+    paintFace(cube.querySelector('.face-right'), sides[1]);
+  }
+
+  const VALID_TRIPLES_9 = [];
+  for (let a = 1; a <= 6; a++)
+    for (let b = 1; b <= 6; b++)
+      for (let c = 1; c <= 6; c++)
+        if ((a + b + c) % 9 === 0) VALID_TRIPLES_9.push([a, b, c]);
+
+  const VALID_TRIPLES_8 = [];
+  for (let a = 1; a <= 6; a++)
+    for (let b = 1; b <= 6; b++)
+      for (let c = 1; c <= 6; c++)
+        if (a + b + c === 8) VALID_TRIPLES_8.push([a, b, c]);
+
+  function pickTriple() {
+    const pool = round === 1 ? VALID_TRIPLES_9 : VALID_TRIPLES_8;
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  const startTriple = pickTriple();
+  cubes.forEach((cube, i) => setDie(cube, startTriple[i]));
+
+  let rolling = false;
+  pressBtn.addEventListener('click', () => {
+    if (rolling) return;
+    rolling = true;
+    pressBtn.disabled = true;
+    Sound.rattle(1.08);
+
+    const target = pickTriple();
+    const flickerTimers = [];
+
+    cubes.forEach(cube => {
+      cube.classList.remove('rolling');
+      void cube.offsetWidth;
+      cube.classList.add('rolling');
+      flickerTimers.push(setInterval(() => setDie(cube, 1 + Math.floor(Math.random() * 6)), 70));
+    });
+
+    setTimeout(() => {
+      flickerTimers.forEach(t => clearInterval(t));
+      cubes.forEach((cube, i) => { setDie(cube, target[i]); cube.classList.remove('rolling'); });
+      rolling = false;
+      pressBtn.disabled = false;
+    }, 1080);
+  });
+})();
+</script>
+
+</body>
+</html>
